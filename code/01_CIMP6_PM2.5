@@ -1,75 +1,159 @@
-library( raster)
-library( sf)
-library( magrittr)
-library( USAboundaries)
-library( data.table)
-library( ggplot2)
-library( viridis)
+# Load necessary libraries
+library(raster)
+library(sf)
+library(magrittr)
+library(USAboundaries)
+library(data.table)
+library(ggplot2)
+library(viridis)
 library(ncdf4)
 library(dplyr)
 library(cowplot)
+library(patchwork)
+library(scales)
 
+# Define projection: Albers Equal Area for contiguous US
 p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
 
-#read the county shp file in 1940
+##################################################################
+# ----------- Read & Transform 1940 Shapefile --------------------
+##################################################################
+
 dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
 
-##This shp file has lots of missing data
-# you can find all the census tract data in https://www.nhgis.org/
-roadiness_county.1940 <-
-    st_read( file.path( dir.in.1940, 'counties_contiguous_1940.shp'))
+##################################################################
+# ----------- Read & Transform 2010 Shapefile --------------------
+##################################################################
 
-roadiness.trans.county.1940 <- st_transform(roadiness_county.1940,
-                                  crs = crs(p4s))
-# Create the plot
+dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
+roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
+roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
+
+##################################################################
+# ---------------- Read County-Level Exposure Data ----------------
+##################################################################
+
+exposure_county <- read.csv("/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_products/NHGIS_Product/1940_2010_county_exposure_NHGIS_last_update_Jun_30_2025.csv")
+
+##################################################################
+# ---------------- Process & Merge 1940 Data ----------------------
+##################################################################
+
+cmip6_county_1940 <- exposure_county %>%
+  filter(Data.Type == "CMIP6", Year == 1940) %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.1940 <- merge(
+  cmip6_county_1940,
+  roadiness.trans.county.1940,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)
+
+##################################################################
+# ---------------- Process & Merge 2010 Data ----------------------
+##################################################################
+
+cmip6_county_2010 <- exposure_county %>%
+  filter(Data.Type == "CMIP6", Year == 2010) %>%
+  mutate(
+    State.Code = sprintf("%02d", as.numeric(State.Code)),
+    County.Code = sprintf("%03d", as.numeric(County.Code))
+  )
+
+combined_df.sf.2010 <- merge(
+  cmip6_county_2010,
+  roadiness.trans.county.2010,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("statefp10", "countyfp10")
+)
+
+##################################################################
+# ---------------- Calculate Mean PM2.5 by County -----------------
+##################################################################
+
+# Define color palette
 colors <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
 
-mean_PM25_by_county_state <- combined_df.sf %>%
-  group_by(county, state) %>%
+# 1940
+mean_PM25_1940 <- combined_df.sf.1940 %>%
+  group_by(State.Code, County.Code) %>%
   summarise(mean_PM25_con = mean(PM2.5_con, na.rm = TRUE))
 
-# Display the result
-print(mean_PM25_by_county_state)
+mean_PM25_1940.sf <- merge(mean_PM25_1940, roadiness.trans.county.1940, by = c("State.Code", "County.Code"))
 
-mean_PM25_by_county_state.sf <- merge(mean_PM25_by_county_state, roadiness.trans.county, 
-                        by= c("state", "county"))
+# 2010
+mean_PM25_2010 <- combined_df.sf.2010 %>%
+  group_by(State.Code, County.Code) %>%
+  summarise(mean_PM25_con = mean(PM2.5_con, na.rm = TRUE))
 
+mean_PM25_2010.sf <- merge(mean_PM25_2010, roadiness.trans.county.2010, by = c("State.Code", "County.Code"))
 
-p <- ggplot() +
-  geom_sf(data = mean_PM25_by_county_state.sf, aes(fill = mean_PM25_con, geometry = geometry), size = 0.1) +
+##################################################################
+# ---------------- Construct Plots -------------------------------
+##################################################################
+
+plot_1940 <- ggplot() +
+  geom_sf(data = mean_PM25_1940.sf, aes(fill = mean_PM25_con), size = 0.1) +
   coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
   scale_fill_gradientn(
     colors = colors,
     limits = c(0, 10),
     breaks = c(0, 2, 4, 6, 8, 10),
-    labels = c('0', '2', '4', '6', '8', '10'),
-    oob = scales::squish,
-    name = expression(PM[2.5] * " [µg/m"^3 * "]"),
+    labels = c("0", "2", "4", "6", "8", "≥10"),
+    oob = squish,
+    name = expression(PM[2.5]*" (µg/m"^3*")"),
+    guide = "none"
+  ) +
+  theme_void() +
+  ggtitle("1940") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5)
+  )
+
+plot_2010 <- ggplot() +
+  geom_sf(data = mean_PM25_2010.sf, aes(fill = mean_PM25_con), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors,
+    limits = c(0, 10),
+    breaks = c(0, 2, 4, 6, 8, 10),
+    labels = c("0", "2", "4", "6", "8", "≥10"),
+    oob = squish,
+    name = expression(PM[2.5]*" (µg/m"^3*")"),
     guide = guide_colorbar(
       title.position = "top",
       title.hjust = 0.5,
       label.position = "bottom",
       barwidth = 20,
-      barheight = 1
+      barheight = 0.7
     )
   ) +
-  theme_minimal() +
-  labs(title = "1940") + 
+  theme_void() +
+  ggtitle("2010") +
   theme(
-    rect = element_blank(),
-    axis.text.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks = element_blank(),
-    legend.position = "none",
-    legend.title = element_text(size = 16),  # Make the legend title bigger
-    legend.text = element_text(size = 12),
-    strip.text.x = element_text(size = 30, face = "bold"),
-    legend.key.size = unit(1, "cm"),
-    plot.title = element_text(size = 25, hjust = 0.5),
-    panel.border = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
   )
 
+##################################################################
+# ---------------- Combine & Display Final Plot ------------------
+##################################################################
+
+combined_plot.cmip6 <- plot_1940 + plot_2010 + 
+  plot_layout(ncol = 2, guides = "collect") & 
+  theme(legend.position = "bottom")
+
+print(combined_plot.cmip6)
+
+
+
 # Save the plot
-ggsave("/scratch/xshan2/R_Code/Correlation/cmip6_1940_all.pdf", plot = p, device = "pdf", width = 7, height = 5)
+ggsave("/scratch/xshan2/R_Code/combined_plot.cmip6.pdf", plot = p, device = "pdf", width = 7, height = 5)
