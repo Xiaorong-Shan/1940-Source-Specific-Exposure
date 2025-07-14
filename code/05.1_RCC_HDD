@@ -1,1 +1,139 @@
+library( raster)
+library( sf)
+library( magrittr)
+library( data.table)
+library( ggplot2)
+library( viridis)
+library(ncdf4)
+library(dplyr)
+library(lubridate)
+
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+##################################################################
+# ----------- Read & Transform 1940 Shapefile --------------------
+##################################################################
+
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
+
+##################################################################
+# ----------- Read & Transform 2010 Shapefile --------------------
+##################################################################
+
+dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
+roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
+roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
+
+##################################################################
+# ---------------- Read County-Level Exposure Data ----------------
+##################################################################
+
+exposure_county <- read.csv("/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_products/NHGIS_Product/1940_2010_county_exposure_NHGIS_last_update_Jun_30_2025.csv")
+
+##################################################################
+# ---------------- Process & Merge 1940 Data ----------------------
+##################################################################
+# 1940
+rcc_hdd_co_1940 <- exposure_county %>%
+  filter(Data.Type == "RCC.HDD", Year == 1940, Category == "CO") %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.rcc_1940 <- merge(
+  rcc_hdd_co_1940,
+  roadiness.trans.county.1940,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)
+
+##################################################################
+# ---------------- Process & Merge 2010 Data ----------------------
+##################################################################
+# 2010
+rcc_hdd_co_2010 <- exposure_county %>%
+  filter(Data.Type == "RCC.HDD", Year == 2010, Category == "CO") %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.rcc_2010 <- merge(
+  rcc_hdd_co_2010,
+  roadiness.trans.county.2010,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("statefp10", "countyfp10")
+)
+
+############################################################
+# ---------------------- Plot Maps -------------------------
+############################################################
+
+# Define updated color palette
+colors_co <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
+
+plot_rcc_1940 <- ggplot() +
+  geom_sf(data = combined_df.sf.rcc_1940, aes(fill = Exposure.Value), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors_co,
+    limits = c(0, 60),
+    breaks = c(0, 30, 60),
+    labels = c("≤0", "30", "≥60"),
+    oob = squish,
+    name = expression("Weighted annual CO emissions (tons/km"^2*")"),
+    guide = "none"
+  ) +
+  theme_void() +
+  ggtitle("1940 CO") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5)
+  )
+
+plot_rcc_2010 <- ggplot() +
+  geom_sf(data = combined_df.sf.rcc_2010, aes(fill = Exposure.Value), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors_co,
+    limits = c(0, 60),
+    breaks = c(0, 30, 60),
+    labels = c("≤0", "30", "≥60"),
+    oob = squish,
+    name = expression("Weighted annual CO emissions (tons/km"^2*")"),
+    guide = guide_colorbar(
+      title.position = "top",
+      title.hjust = 0.5,
+      label.position = "bottom",
+      barwidth = 20,
+      barheight = 0.7
+    )
+  ) +
+  theme_void() +
+  ggtitle("2010 CO") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
+  )
+
+# Combine and plot
+combined_plot_rcc <- plot_rcc_1940 + plot_rcc_2010 +
+  plot_layout(ncol = 2, guides = "collect") &
+  theme(legend.position = "bottom")
+
+# Display
+print(combined_plot_rcc)
+
+# Save
+ggsave(
+  filename = "/scratch/xshan2/R_Code/RCC_HDD_CO_1940_2010_combined.pdf",
+  plot = combined_plot_rcc,
+  device = "pdf",
+  width = 7,
+  height = 5
+)
 
