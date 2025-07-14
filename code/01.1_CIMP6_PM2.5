@@ -42,7 +42,7 @@ exposure_county <- read.csv("/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_product
 ##################################################################
 
 cmip6_county_1940 <- exposure_county %>%
-  filter(Data.Type == "CMIP6", Year == 1940) %>%
+  filter(Data.Type == "CMIP6", Year == 1940, Category == "PM2.5") %>%
   mutate(
     State.Code = sprintf("%03d", as.numeric(State.Code)),
     County.Code = sprintf("%04d", as.numeric(County.Code))
@@ -60,7 +60,7 @@ combined_df.sf.1940 <- merge(
 ##################################################################
 
 cmip6_county_2010 <- exposure_county %>%
-  filter(Data.Type == "CMIP6", Year == 2010) %>%
+  filter(Data.Type == "CMIP6", Year == 2010, Category == "PM2.5") %>%
   mutate(
     State.Code = sprintf("%02d", as.numeric(State.Code)),
     County.Code = sprintf("%03d", as.numeric(County.Code))
