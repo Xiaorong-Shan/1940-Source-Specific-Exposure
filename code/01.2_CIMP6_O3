@@ -1,1 +1,174 @@
+############################################################
+# ---------------- Load Required Libraries ----------------
+############################################################
+
+library(raster)
+library(sf)
+library(magrittr)
+library(USAboundaries)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(ncdf4)
+library(dplyr)
+library(cowplot)
+library(patchwork)
+library(scales)
+
+############################################################
+# ---------------- Projection Definition ------------------
+############################################################
+
+# Albers Equal Area projection for contiguous US
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+############################################################
+# ----------- Read & Transform 1940 Shapefile -------------
+############################################################
+
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
+
+############################################################
+# ----------- Read & Transform 2010 Shapefile -------------
+############################################################
+
+dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
+roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
+roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
+
+############################################################
+# ----------- Load County-Level Exposure Dataset ----------
+############################################################
+
+exposure_county <- read.csv(
+  "/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_products/NHGIS_Product/1940_2010_county_exposure_NHGIS_last_update_Jun_30_2025.csv"
+)
+
+############################################################
+# ----------- Process & Merge 1940 O3 Data ----------------
+############################################################
+
+cmip6_ozone_1940 <- exposure_county %>%
+  filter(Data.Type == "CMIP6", Year == 1940, Category == "O3") %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.ozone_1940 <- merge(
+  cmip6_ozone_1940,
+  roadiness.trans.county.1940,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)
+
+############################################################
+# ----------- Process & Merge 2010 O3 Data ----------------
+############################################################
+
+cmip6_ozone_2010 <- exposure_county %>%
+  filter(Data.Type == "CMIP6", Year == 2010, Category == "O3") %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.ozone_2010 <- merge(
+  cmip6_ozone_2010,
+  roadiness.trans.county.2010,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("statefp10", "countyfp10")
+)
+
+############################################################
+# ---------- Calculate Mean O3 by County ------------------
+############################################################
+
+# Define color palette for O3 (like your visual)
+colors_o3 <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
+
+# 1940
+mean_O3_1940 <- combined_df.sf.ozone_1940 %>%
+  group_by(State.Code, County.Code) %>%
+  summarise(mean_O3_con = mean(O3_con, na.rm = TRUE))
+
+mean_O3_1940.sf <- merge(mean_O3_1940, roadiness.trans.county.1940, by = c("State.Code", "County.Code"))
+
+# 2010
+mean_O3_2010 <- combined_df.sf.ozone_2010 %>%
+  group_by(State.Code, County.Code) %>%
+  summarise(mean_O3_con = mean(O3_con, na.rm = TRUE))
+
+mean_O3_2010.sf <- merge(mean_O3_2010, roadiness.trans.county.2010, by = c("State.Code", "County.Code"))
+
+############################################################
+# ---------------- Plot O3 Maps ---------------------------
+############################################################
+
+# 1940 O3 plot
+plot_cmip6_o3_1940 <- ggplot() +
+  geom_sf(data = mean_O3_1940.sf, aes(fill = mean_O3_con), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors_o3,
+    limits = c(25, 50),
+    breaks = c(25, 30, 35, 40, 45, 50),
+    labels = c("<25", "30", "35", "40", "45", "≥50"),
+    oob = squish,
+    name = expression(O[3]*" (ppb)"),
+    guide = "none"
+  ) +
+  theme_void() +
+  ggtitle(expression("1.2 CMIP6 Modeled " * O[3] * " Concentration in 1940")) +
+  theme(plot.title = element_text(size = 20, hjust = 0.5))
+
+# 2010 O3 plot
+plot_cmip6_o3_2010 <- ggplot() +
+  geom_sf(data = mean_O3_2010.sf, aes(fill = mean_O3_con), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors_o3,
+    limits = c(25, 50),
+    breaks = c(25, 30, 35, 40, 45, 50),
+    labels = c("<25", "30", "35", "40", "45", "≥50"),
+    oob = squish,
+    name = expression(O[3]*" (ppb)"),
+    guide = guide_colorbar(
+      title.position = "top",
+      title.hjust = 0.5,
+      label.position = "bottom",
+      barwidth = 20,
+      barheight = 0.7
+    )
+  ) +
+  theme_void() +
+  ggtitle(expression("1.2 CMIP6 Modeled " * O[3] * " Concentration in 2010")) +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
+  )
+
+############################################################
+# ------------- Combine and Save Plot ---------------------
+############################################################
+
+combined_plot_cmip6_o3 <- plot_cmip6_o3_1940 + plot_cmip6_o3_2010 +
+  plot_layout(ncol = 2, guides = "collect") & 
+  theme(legend.position = "bottom")
+
+# Display
+print(combined_plot_cmip6_o3)
+
+# Save to file
+ggsave(
+  filename = "/scratch/xshan2/R_Code/CMIP6_O3_1940_2010_combined.pdf",
+  plot = combined_plot_cmip6_o3,
+  device = "pdf",
+  width = 7,
+  height = 5
+)
 
