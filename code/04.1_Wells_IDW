@@ -64,8 +64,13 @@ agg_exposure.1940 <- well_idw.dt.1940 %>%
   )%>%
   mutate(Category = "All") 
 
-combined_df.sf.wells_1940 <- merge(
+combined_exposure.1940 <- bind_rows(
   well_idw.dt.1940,
+  agg_exposure.1940
+)
+
+combined_df.sf.wells_1940 <- merge(
+  combined_exposure.1940,
   roadiness.trans.county.1940,
   by.x = c("State.Code", "County.Code"),
   by.y = c("state", "county")
@@ -90,12 +95,23 @@ agg_exposure.2010 <- well_idw.dt.2010 %>%
   )%>%
   mutate(Category = "All") 
 
-combined_df.sf.wells_2010 <- merge(
+combined_exposure.2010 <- bind_rows(
   well_idw.dt.2010,
+  agg_exposure.2010
+)
+
+combined_df.sf.wells_2010 <- merge(
+  combined_exposure.2010,
   roadiness.trans.county.2010,
   by.x = c("State.Code", "County.Code"),
-  by.y = c("statefp10", "countyfp10")
+  by.y = c("state", "county")
 )
+
+############################################################
+# ---- Normalize Wells.IDW Exposure by Year (Z-score) -----
+############################################################
+
+#calculate the sd to prepare normalizing
 combined_data <- bind_rows(
   agg_exposure.1940 %>% select(exposure),
   agg_exposure.2010 %>% select(exposure)
@@ -105,6 +121,12 @@ sd_exposure <- sd(combined_data$exposure, na.rm = TRUE)
 
 print(sd_exposure) #0.2363053 # prepare for nomarlize
 
+#1940
+combined_df.sf.wells_1940$exposure_norm <- combined_df.sf.wells_1940$Exposure.Value / sd_exposure 
+
+#2010
+combined_df.sf.wells_2010$exposure_norm <- combined_df.sf.wells_2010$Exposure.Value / sd_exposure 
+
 ############################################################
 # ------------------------- Plot ---------------------------
 ############################################################
@@ -112,7 +134,7 @@ print(sd_exposure) #0.2363053 # prepare for nomarlize
 colors <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
 
 plot.1940 <- ggplot() +
-  geom_sf(data = combined_df.sf.wells_1940,
+  geom_sf(data = combined_df.sf.wells_1940%>% filter(Category == "All"),
           aes(fill = exposure_norm, geometry = geometry),
           size = 0.1) +
   coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
@@ -130,7 +152,7 @@ plot.1940 <- ggplot() +
   )
 
 plot.2010 <- ggplot() +
-  geom_sf(data = combined_df.sf.wells_2010,
+  geom_sf(data = combined_df.sf.wells_2010%>% filter(Category == "All"),
           aes(fill = exposure_norm, geometry = geometry),
           size = 0.1) +
   coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
