@@ -1,0 +1,75 @@
+library( raster)
+library( sf)
+library( magrittr)
+library( USAboundaries)
+library( data.table)
+library( ggplot2)
+library( viridis)
+library(ncdf4)
+library(dplyr)
+library(cowplot)
+
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+#read the county shp file in 1940
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+
+##This shp file has lots of missing data
+# you can find all the census tract data in https://www.nhgis.org/
+roadiness_county.1940 <-
+    st_read( file.path( dir.in.1940, 'counties_contiguous_1940.shp'))
+
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940,
+                                  crs = crs(p4s))
+# Create the plot
+colors <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
+
+mean_PM25_by_county_state <- combined_df.sf %>%
+  group_by(county, state) %>%
+  summarise(mean_PM25_con = mean(PM2.5_con, na.rm = TRUE))
+
+# Display the result
+print(mean_PM25_by_county_state)
+
+mean_PM25_by_county_state.sf <- merge(mean_PM25_by_county_state, roadiness.trans.county, 
+                        by= c("state", "county"))
+
+
+p <- ggplot() +
+  geom_sf(data = mean_PM25_by_county_state.sf, aes(fill = mean_PM25_con, geometry = geometry), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors,
+    limits = c(0, 10),
+    breaks = c(0, 2, 4, 6, 8, 10),
+    labels = c('0', '2', '4', '6', '8', '10'),
+    oob = scales::squish,
+    name = expression(PM[2.5] * " [µg/m"^3 * "]"),
+    guide = guide_colorbar(
+      title.position = "top",
+      title.hjust = 0.5,
+      label.position = "bottom",
+      barwidth = 20,
+      barheight = 1
+    )
+  ) +
+  theme_minimal() +
+  labs(title = "1940") + 
+  theme(
+    rect = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "none",
+    legend.title = element_text(size = 16),  # Make the legend title bigger
+    legend.text = element_text(size = 12),
+    strip.text.x = element_text(size = 30, face = "bold"),
+    legend.key.size = unit(1, "cm"),
+    plot.title = element_text(size = 25, hjust = 0.5),
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+# Save the plot
+ggsave("/scratch/xshan2/R_Code/Correlation/cmip6_1940_all.pdf", plot = p, device = "pdf", width = 7, height = 5)
