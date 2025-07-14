@@ -92,14 +92,14 @@ colors_o3 <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
 # 1940
 mean_O3_1940 <- combined_df.sf.ozone_1940 %>%
   group_by(State.Code, County.Code) %>%
-  summarise(mean_O3_con = mean(O3_con, na.rm = TRUE))
+  summarise(mean_O3_con = mean(Exposure.Value, na.rm = TRUE))
 
 mean_O3_1940.sf <- merge(mean_O3_1940, roadiness.trans.county.1940, by = c("State.Code", "County.Code"))
 
 # 2010
 mean_O3_2010 <- combined_df.sf.ozone_2010 %>%
   group_by(State.Code, County.Code) %>%
-  summarise(mean_O3_con = mean(O3_con, na.rm = TRUE))
+  summarise(mean_O3_con = mean(Exposure.Value, na.rm = TRUE))
 
 mean_O3_2010.sf <- merge(mean_O3_2010, roadiness.trans.county.2010, by = c("State.Code", "County.Code"))
 
