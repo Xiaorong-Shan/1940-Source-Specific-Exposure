@@ -25,12 +25,12 @@ p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=
 # ----------- Read & Transform County Shapefiles ----------
 ############################################################
 
-# 1940
+# 1940 shapefile
 dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
 roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
 roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
 
-# 2010
+# 2010 shapefile
 dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
 roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
 roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
@@ -78,3 +78,81 @@ combined_df.sf.co_2010 <- merge(
   by.x = c("State.Code", "County.Code"),
   by.y = c("statefp10", "countyfp10")
 )
+
+############################################################
+# ---------------- Define Color Palette --------------------
+############################################################
+
+colors_co <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
+
+############################################################
+# ---------------------- Plot Maps -------------------------
+############################################################
+
+# 1940 plot
+plot_auto_co_1940 <- ggplot() +
+  geom_sf(data = combined_df.sf.co_1940, aes(fill = Exposure.Value), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors_co,
+    limits = c(0, 20),
+    breaks = c(0, 10, 20),
+    labels = c("≤0", "10", "≥20"),
+    oob = squish,
+    name = expression("Weighted annual CO emissions (tons/km"^2*")"),
+    guide = "none"
+  ) +
+  theme_void() +
+  ggtitle("1940 CO") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5)
+  )
+
+# 2010 plot
+plot_auto_co_2010 <- ggplot() +
+  geom_sf(data = combined_df.sf.co_2010, aes(fill = Exposure.Value), size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(
+    colors = colors_co,
+    limits = c(0, 20),
+    breaks = c(0, 10, 20),
+    labels = c("≤0", "10", "≥20"),
+    oob = squish,
+    name = expression("Weighted annual CO emissions (tons/km"^2*")"),
+    guide = guide_colorbar(
+      title.position = "top",
+      title.hjust = 0.5,
+      label.position = "bottom",
+      barwidth = 20,
+      barheight = 0.7
+    )
+  ) +
+  theme_void() +
+  ggtitle("2010 CO") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
+  )
+
+############################################################
+# --------------- Combine & Save Final Plot ----------------
+############################################################
+
+combined_plot_auto_co <- plot_auto_co_1940 + plot_auto_co_2010 +
+  plot_layout(ncol = 2, guides = "collect") & 
+  theme(legend.position = "bottom")
+
+# Display plot
+print(combined_plot_auto_co)
+
+# Save to file
+ggsave(
+  filename = "/scratch/xshan2/R_Code/Automobile_CO_1940_2010_combined_direct.pdf",
+  plot = combined_plot_auto_co,
+  device = "pdf",
+  width = 7,
+  height = 5
+)
+
