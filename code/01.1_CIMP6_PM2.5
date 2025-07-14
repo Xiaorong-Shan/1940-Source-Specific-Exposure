@@ -98,7 +98,8 @@ mean_PM25_2010.sf <- merge(mean_PM25_2010, roadiness.trans.county.2010, by = c("
 # ---------------- Construct Plots -------------------------------
 ##################################################################
 
-plot_1940 <- ggplot() +
+# 1940 PM2.5 from CMIP6
+plot_cmip6_pm25_1940 <- ggplot() +
   geom_sf(data = mean_PM25_1940.sf, aes(fill = mean_PM25_con), size = 0.1) +
   coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
   scale_fill_gradientn(
@@ -111,12 +112,13 @@ plot_1940 <- ggplot() +
     guide = "none"
   ) +
   theme_void() +
-  ggtitle("1940") +
+  ggtitle(expression("1.1 CMIP6 Modeled " * PM[2.5] * " Concentration in 1940")) +
   theme(
     plot.title = element_text(size = 20, hjust = 0.5)
   )
 
-plot_2010 <- ggplot() +
+# 2010 PM2.5 from CMIP6
+plot_cmip6_pm25_2010 <- ggplot() +
   geom_sf(data = mean_PM25_2010.sf, aes(fill = mean_PM25_con), size = 0.1) +
   coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
   scale_fill_gradientn(
@@ -135,7 +137,7 @@ plot_2010 <- ggplot() +
     )
   ) +
   theme_void() +
-  ggtitle("2010") +
+  ggtitle(expression("1.1 CMIP6 Modeled " * PM[2.5] * " Concentration in 2010")) +
   theme(
     plot.title = element_text(size = 20, hjust = 0.5),
     legend.position = "bottom",
@@ -147,11 +149,18 @@ plot_2010 <- ggplot() +
 # ---------------- Combine & Display Final Plot ------------------
 ##################################################################
 
-combined_plot.cmip6 <- plot_1940 + plot_2010 + 
+combined_plot_cmip6_pm25 <- plot_cmip6_pm25_1940 + plot_cmip6_pm25_2010 +
   plot_layout(ncol = 2, guides = "collect") & 
   theme(legend.position = "bottom")
 
-print(combined_plot.cmip6)
+# Display plot
+print(combined_plot_cmip6_pm25)
 
-# Save the plot
-ggsave("/scratch/xshan2/R_Code/combined_plot.cmip6.pdf", plot = p, device = "pdf", width = 7, height = 5)
+# Save plot with descriptive filename
+ggsave(
+  filename = "/scratch/xshan2/R_Code/CMIP6_PM25_1940_2010_combined.pdf",
+  plot = combined_plot_cmip6_pm25,
+  device = "pdf",
+  width = 7,
+  height = 5
+)
