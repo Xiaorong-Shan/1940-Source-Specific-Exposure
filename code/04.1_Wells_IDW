@@ -59,17 +59,17 @@ well_idw.dt.1940 <- exposure_county %>%
 agg_exposure.1940 <- well_idw.dt.1940 %>%
   group_by(State.Code, County.Code) %>%
   summarise(
-    exposure = sum(Exposure.Value, na.rm = TRUE),
+    Exposure.Value = sum(Exposure.Value, na.rm = TRUE),
     .groups = "drop"
-  )
+  )%>%
+  mutate(Category = "All") 
 
 combined_df.sf.wells_1940 <- merge(
   well_idw.dt.1940,
   roadiness.trans.county.1940,
   by.x = c("State.Code", "County.Code"),
   by.y = c("state", "county")
-)%>%
-  mutate(Category = "All") 
+)
 
 ############################################################
 # ----------- Filter & Prepare 2010 Wells Data ------------
@@ -85,7 +85,7 @@ well_idw.dt.2010 <- exposure_county %>%
 agg_exposure.2010 <- well_idw.dt.2010 %>%
   group_by(State.Code, County.Code) %>%
   summarise(
-    exposure = sum(Exposure.Value, na.rm = TRUE),
+    Exposure.Value = sum(Exposure.Value, na.rm = TRUE),
     .groups = "drop"
   )%>%
   mutate(Category = "All") 
