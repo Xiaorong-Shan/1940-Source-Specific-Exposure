@@ -1,0 +1,80 @@
+############################################################
+# ---------------- Load Required Libraries ----------------
+############################################################
+
+library(raster)
+library(sf)
+library(magrittr)
+library(USAboundaries)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(ncdf4)
+library(dplyr)
+library(cowplot)
+library(patchwork)
+library(scales)
+
+############################################################
+# ---------------- Projection Definition ------------------
+############################################################
+
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+############################################################
+# ----------- Read & Transform County Shapefiles ----------
+############################################################
+
+# 1940
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
+
+# 2010
+dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
+roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
+roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
+
+############################################################
+# ---------------- Load Exposure Data ----------------------
+############################################################
+
+exposure_county <- read.csv(
+  "/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_products/NHGIS_Product/1940_2010_county_exposure_NHGIS_last_update_Jun_30_2025.csv"
+)
+
+############################################################
+# ------------- Process & Merge 1940 CO Data ---------------
+############################################################
+
+auto_co_1940 <- exposure_county %>%
+  filter(Data.Type == "Automobile", Year == 1940, Category == "CO") %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.co_1940 <- merge(
+  auto_co_1940,
+  roadiness.trans.county.1940,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)
+
+############################################################
+# ------------- Process & Merge 2010 CO Data ---------------
+############################################################
+
+auto_co_2010 <- exposure_county %>%
+  filter(Data.Type == "Automobile", Year == 2010, Category == "CO") %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.co_2010 <- merge(
+  auto_co_2010,
+  roadiness.trans.county.2010,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("statefp10", "countyfp10")
+)
