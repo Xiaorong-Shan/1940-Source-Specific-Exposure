@@ -1,1 +1,169 @@
 
+############################################################
+# ---------------- Load Required Libraries ----------------
+############################################################
+
+library(raster)
+library(sf)
+library(magrittr)
+library(USAboundaries)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(ncdf4)
+library(dplyr)
+library(cowplot)
+library(patchwork)
+library(scales)
+
+############################################################
+# ---------------- Projection Definition ------------------
+############################################################
+
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+############################################################
+# ----------- Read & Transform County Shapefiles ----------
+############################################################
+
+# 1940
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
+
+# 2010
+dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
+roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
+roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
+
+############################################################
+# ---------------- Load Exposure Data ----------------------
+############################################################
+
+exposure_county <- read.csv(
+  "/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_products/NHGIS_Product/1940_2010_county_exposure_NHGIS_last_update_Jun_30_2025.csv"
+)
+
+
+############################################################
+# ----------- Filter & Prepare 1940 Wells Data ------------
+############################################################
+
+well_idw.dt.1940 <- exposure_county %>%
+  filter(Data.Type == "Wells.IDW", Year == 1940) %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+agg_exposure.1940 <- well_idw.dt.1940 %>%
+  group_by(State.Code, County.Code) %>%
+  summarise(
+    exposure = sum(Exposure.Value, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+combined_df.sf.wells_1940 <- merge(
+  well_idw.dt.1940,
+  roadiness.trans.county.1940,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)%>%
+  mutate(Category = "All") 
+
+############################################################
+# ----------- Filter & Prepare 2010 Wells Data ------------
+############################################################
+
+well_idw.dt.2010 <- exposure_county %>%
+  filter(Data.Type == "Wells.IDW", Year == 2010) %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+agg_exposure.2010 <- well_idw.dt.2010 %>%
+  group_by(State.Code, County.Code) %>%
+  summarise(
+    exposure = sum(Exposure.Value, na.rm = TRUE),
+    .groups = "drop"
+  )%>%
+  mutate(Category = "All") 
+
+combined_df.sf.wells_2010 <- merge(
+  well_idw.dt.2010,
+  roadiness.trans.county.2010,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("statefp10", "countyfp10")
+)
+combined_data <- bind_rows(
+  agg_exposure.1940 %>% select(exposure),
+  agg_exposure.2010 %>% select(exposure)
+)
+
+sd_exposure <- sd(combined_data$exposure, na.rm = TRUE)
+
+print(sd_exposure) #0.2363053 # prepare for nomarlize
+
+############################################################
+# ------------------------- Plot ---------------------------
+############################################################
+
+colors <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
+
+plot.1940 <- ggplot() +
+  geom_sf(data = combined_df.sf.wells_1940,
+          aes(fill = exposure_norm, geometry = geometry),
+          size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(colors = colors,
+                       limits = c(0, 0.2),
+                       breaks = c(0, 0.1, 0.2),
+                       labels = c("0", "0.1", "≥0.2"),
+                       oob = squish,
+                       name = "SD") +
+  theme_void() +
+  ggtitle("1940") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "none"
+  )
+
+plot.2010 <- ggplot() +
+  geom_sf(data = combined_df.sf.wells_2010,
+          aes(fill = exposure_norm, geometry = geometry),
+          size = 0.1) +
+  coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
+  scale_fill_gradientn(colors = colors,
+                       limits = c(0, 0.2),
+                       breaks = c(0, 0.1, 0.2),
+                       labels = c("0", "0.1", "≥0.2"),
+                       oob = squish,
+                       name = "SD") +
+  theme_void() +
+  ggtitle("2010") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "bottom",
+    legend.title = element_text(size = 14, hjust = 0),
+    legend.text = element_text(size = 10),
+    legend.title.align = 0,
+    legend.key.width = unit(2, "cm")
+  )
+
+# Combine & plot
+combined_plot_wells <- plot.1940 + plot.2010 +
+  plot_layout(ncol = 2, guides = "collect") &
+  theme(legend.position = "bottom")
+
+# Display
+print(combined_plot_wells)
+
+# Save to file
+ggsave(
+  filename = "/scratch/xshan2/R_Code/Wells_IDW_SD_1940_2010_combined.pdf",
+  plot = combined_plot_wells,
+  device = "pdf",
+  width = 7,
+  height = 5
+)
