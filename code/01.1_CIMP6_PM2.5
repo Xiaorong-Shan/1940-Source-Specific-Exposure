@@ -83,14 +83,14 @@ colors <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
 # 1940
 mean_PM25_1940 <- combined_df.sf.1940 %>%
   group_by(State.Code, County.Code) %>%
-  summarise(mean_PM25_con = mean(PM2.5_con, na.rm = TRUE))
+  summarise(mean_PM25_con = mean(Exposure.Value, na.rm = TRUE))
 
 mean_PM25_1940.sf <- merge(mean_PM25_1940, roadiness.trans.county.1940, by = c("State.Code", "County.Code"))
 
 # 2010
 mean_PM25_2010 <- combined_df.sf.2010 %>%
   group_by(State.Code, County.Code) %>%
-  summarise(mean_PM25_con = mean(PM2.5_con, na.rm = TRUE))
+  summarise(mean_PM25_con = mean(Exposure.Value, na.rm = TRUE))
 
 mean_PM25_2010.sf <- merge(mean_PM25_2010, roadiness.trans.county.2010, by = c("State.Code", "County.Code"))
 
