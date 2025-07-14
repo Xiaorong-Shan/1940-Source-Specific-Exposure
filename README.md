@@ -24,7 +24,7 @@ Estimated air pollution exposure by source sector for each U.S. county in the ye
 
 ---
 
-### 2. 1940 Visibility Measurements
+### 2. 1940 Visibility Estimates
 
 Observed or reconstructed visibility data from 1940, used as a proxy for historical particulate matter concentrations.
 
