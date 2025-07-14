@@ -49,7 +49,7 @@ exposure_county <- read.csv(
 
 # 1940
 power_pm25_1940 <- exposure_county %>%
-  filter(Data.Type == "PowerPlant", Year == 1940, Category == "PM2.5") %>%
+  filter(Data.Type == "PP.HyADS", Year == 1940, Category == "PM2.5") %>%
   mutate(
     State.Code = sprintf("%03d", as.numeric(State.Code)),
     County.Code = sprintf("%04d", as.numeric(County.Code))
@@ -64,7 +64,7 @@ combined_df.sf.power_1940 <- merge(
 
 # 2010
 power_pm25_2010 <- exposure_county %>%
-  filter(Data.Type == "PowerPlant", Year == 2010, Category == "PM2.5") %>%
+  filter(Data.Type == "PP.HyADS", Year == 2010, Category == "PM2.5") %>%
   mutate(
     State.Code = sprintf("%03d", as.numeric(State.Code)),
     County.Code = sprintf("%04d", as.numeric(County.Code))
