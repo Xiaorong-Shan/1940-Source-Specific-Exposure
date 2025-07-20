@@ -51,7 +51,7 @@ exposure_county <- read.csv(
 ############################################################
 
 cmip6_ozone_1940 <- exposure_county %>%
-  filter(Data.Type == "CMIP6", Year == 1940, Category == "O3") %>%
+  filter(Data.Type == "CMIP6_O3", Year == 1940) %>%
   mutate(
     State.Code = sprintf("%03d", as.numeric(State.Code)),
     County.Code = sprintf("%04d", as.numeric(County.Code))
@@ -69,7 +69,7 @@ combined_df.sf.ozone_1940 <- merge(
 ############################################################
 
 cmip6_ozone_2010 <- exposure_county %>%
-  filter(Data.Type == "CMIP6", Year == 2010, Category == "O3") %>%
+  filter(Data.Type == "CMIP6_O3", Year == 2010) %>%
   mutate(
     State.Code = sprintf("%03d", as.numeric(State.Code)),
     County.Code = sprintf("%04d", as.numeric(County.Code))
@@ -121,7 +121,7 @@ plot_cmip6_o3_1940 <- ggplot() +
     guide = "none"
   ) +
   theme_void() +
-  ggtitle(expression("1.2 CMIP6 Modeled " * O[3] * " Concentration in 1940")) +
+  ggtitle("1940") +
   theme(plot.title = element_text(size = 20, hjust = 0.5))
 
 # 2010 O3 plot
@@ -144,7 +144,7 @@ plot_cmip6_o3_2010 <- ggplot() +
     )
   ) +
   theme_void() +
-  ggtitle(expression("1.2 CMIP6 Modeled " * O[3] * " Concentration in 2010")) +
+  ggtitle("2010") +
   theme(
     plot.title = element_text(size = 20, hjust = 0.5),
     legend.position = "bottom",
