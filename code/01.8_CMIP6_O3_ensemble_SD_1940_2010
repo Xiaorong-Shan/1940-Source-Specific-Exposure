@@ -1,1 +1,181 @@
+# Load necessary libraries
+library(raster)
+library(sf)
+library(magrittr)
+library(USAboundaries)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(ncdf4)
+library(dplyr)
+library(cowplot)
+library(patchwork)
+library(scales)
 
+# Define projection: Albers Equal Area for contiguous US
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+##################################################################
+# ----------- Read & Transform 1940 Shapefile --------------------
+##################################################################
+
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
+
+##################################################################
+# ----------- Read & Transform 2010 Shapefile --------------------
+##################################################################
+
+dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
+roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
+roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
+
+##################################################################
+# ---------------- Read County-Level Exposure Data ----------------
+##################################################################
+
+exposure_county <- read.csv("/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_products/NHGIS_Product/1940_2010_county_exposure_NHGIS_last_update_Jun_30_2025.csv")
+
+##################################################################
+# ---------------- Process & Merge 1940 Data ----------------------
+##################################################################
+
+cmip6_county_1940 <- exposure_county %>%
+  filter(Data.Type == "CMIP6_O3", Year == 1940) %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.1940 <- merge(
+  cmip6_county_1940,
+  roadiness.trans.county.1940,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)
+
+##################################################################
+# ---------------- Process & Merge 2010 Data ----------------------
+##################################################################
+
+cmip6_county_2010 <- exposure_county %>%
+  filter(Data.Type == "CMIP6_O3", Year == 2010) %>%
+  mutate(
+    State.Code = sprintf("%02d", as.numeric(State.Code)),
+    County.Code = sprintf("%03d", as.numeric(County.Code))
+  )
+
+combined_df.sf.2010 <- merge(
+  cmip6_county_2010,
+  roadiness.trans.county.2010,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("statefp10", "countyfp10")
+)
+
+##################################################################
+# ---------------- Calculate SD PM2.5 by County -----------------
+##################################################################
+
+# Define color palette
+colors <- c("#f7fbff", "#deebf7", "#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c")
+
+#1940
+sd_O3_1940 <- combined_df.sf.1940 %>%
+  group_by(State.Code, County.Code) %>%
+  summarise(
+    sd_O3_con = sd(Exposure.Value, na.rm = TRUE)
+  )
+
+sd_O3_1940.sf <- merge(
+  sd_O3_1940,
+  roadiness.trans.county.1940,
+  by = c("State.Code", "County.Code")
+)
+
+#2010
+sd_O3_2010 <- combined_df.sf.2010 %>%
+  group_by(State.Code, County.Code) %>%
+  summarise(sd_O3_con = sd(Exposure.Value, na.rm = TRUE))
+
+sd_O3_2010.sf <- merge(
+  sd_O3_2010,
+  roadiness.trans.county.2010,
+  by = c("State.Code", "County.Code")
+)
+
+##################################################################
+# ---------------- Construct Plots -------------------------------
+##################################################################
+#1940 O3 SD for CMIP6
+plot_cmip6_o3_sd_1940 <- ggplot() +
+  geom_sf(
+    data = sd_O3_1940.sf,
+    aes(fill = sd_O3_con),
+    size = 0.1
+  ) +
+  coord_sf(
+    xlim   = c(-3000000, 2500000),
+    ylim   = c(-2000000, 1500000),
+    expand = FALSE
+  ) +
+  scale_fill_gradientn(
+    colors = colors,
+    limits  = c(2, 5),
+    breaks  = c(2, 3, 4, 5),
+    labels  = c(">2", "3", "4", "≥5"),
+    oob     = scales::squish,
+    name    = expression(O[3]~"(ppb)")
+  ) +
+  theme_void() +
+  ggtitle("1940") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "bottom"
+  )
+
+#2010 O3 SD for CMIP6
+plot_cmip6_o3_sd_2010 <- ggplot() +
+  geom_sf(
+    data = sd_O3_2010.sf,
+    aes(fill = sd_O3_con),
+    size = 0.1
+  ) +
+  coord_sf(
+    xlim   = c(-3000000, 2500000),
+    ylim   = c(-2000000, 1500000),
+    expand = FALSE
+  ) +
+  scale_fill_gradientn(
+    colors = colors,
+    limits  = c(2, 5),
+    breaks  = c(2, 3, 4, 5),
+    labels  = c(">2", "3", "4", "≥5"),
+    oob     = scales::squish,
+    name    = expression(O[3]~"(ppb)")
+  ) +
+  theme_void() +
+  ggtitle("2010") +
+  theme(
+    plot.title = element_text(size = 20, hjust = 0.5),
+    legend.position = "bottom"
+  )
+
+##################################################################
+# ---------------- Combine & Display Final Plot ------------------
+##################################################################
+combined_plot_sd_cmip6_o3 <- plot_cmip6_o3_sd_1940 + plot_cmip6_o3_sd_2010 +
+  plot_layout(ncol = 2, guides = "collect") & 
+  theme(legend.position = "bottom")
+
+# Display plot
+print(combined_plot_sd_cmip6_o3)
+
+# Save plot with descriptive filename
+ggsave(
+  filename = "/scratch/xshan2/R_Code/CMIP6_O3_1940_2010_SD.pdf",
+  plot = combined_plot_sd_cmip6_o3,
+  device = "pdf",
+  width = 7,
+  height = 5
+)
