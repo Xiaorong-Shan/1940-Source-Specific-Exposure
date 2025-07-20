@@ -56,7 +56,7 @@ combined_df.sf.1940 <- merge(
 colors <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
 
 
-# 1940 O3 from CMIP6 11 models
+# 1940 O3 from CMIP6 6 models
 ggplot(combined_df.sf.1940) +
   geom_sf(aes(fill = Exposure.Value), size = 0.1) +
   coord_sf(
