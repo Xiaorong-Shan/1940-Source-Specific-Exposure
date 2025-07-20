@@ -106,3 +106,13 @@ ggplot(combined_df.sf.1940) +
     # tighten up margins
     plot.margin      = margin(5, 5, 5, 5)
   )
+
+ggsave(
+  filename = "/scratch/xshan2/R_Code/CMIP6_PM25_1940_11_models.pdf",  # output file
+  plot     = p,                       # your plot object
+  device   = "pdf",                   # ensure PDF device
+  width    = 11,                      # width in inches
+  height   = 8.5,                     # height in inches
+  units    = "in",                    # specify units
+  dpi      = 300                      # resolution (only matters for raster layers)
+)
