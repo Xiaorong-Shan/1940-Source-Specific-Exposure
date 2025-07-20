@@ -66,9 +66,9 @@ ggplot(combined_df.sf.2010) +
   ) +
   scale_fill_gradientn(
     colours = cols,
-    limits  = c(0, 10),
-    breaks  = c(0, 2, 4, 6, 8, 10),
-    labels  = c("<0", "2", "4", "6", "8", "≥10"),
+    limits  = c(20, 40),
+    breaks  = c(20, 30, 40),
+    labels  = c("<20", "30", "≥40"),
     oob     = squish,
     name    = expression(O[3]*" (ppb)"),
     guide   = guide_colorbar(
