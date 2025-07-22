@@ -24,15 +24,15 @@ Population-weighted emissions of:
 
 #### C. Stationary Source Emissions
 
-1. **Power Plants**  
+(1). **Power Plants**  
    - **Fuel Types:** Coal, Gas, Petroleum, Renewable  
    - **Spatial Models:** HYADS, Inverse Distance Weighting (IDW)  
 
-2. **Wells**  
+(2). **Wells**  
    - **Production Types:** Oil, Gas  
    - **Spatial Interpolation:** IDW  
 
-3. **Residential & Commercial Combustion**  
+(3). **Residential & Commercial Combustion**  
    - **Fuel:** Coal  
    - **Pollutants:** BC, CO, NH₃, NMVOC, NOₓ, OC, SO₂  
    - **Exposure Metric:** Heating Degree Days (HDD)  
