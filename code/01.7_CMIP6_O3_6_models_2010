@@ -108,7 +108,7 @@ ggplot(combined_df.sf.2010) +
   )
 
 ggsave(
-  filename = "/scratch/xshan2/R_Code/CMIP6_O3_2010_11_models.pdf",  # output file
+  filename = "/scratch/xshan2/R_Code/CMIP6_O3_2010_6_models.pdf",  # output file
   plot     = p,                       # your plot object
   device   = "pdf",                   # ensure PDF device
   width    = 11,                      # width in inches
