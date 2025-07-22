@@ -148,7 +148,9 @@ plot.1940.oil <- ggplot() +
   ggtitle("1940 Oil") +
   theme(
     plot.title = element_text(size = 20, hjust = 0.5),
-    legend.position = "none"
+    legend.position = "none",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
   )
 
 plot.1940.gas <- ggplot() +
@@ -166,7 +168,9 @@ plot.1940.gas <- ggplot() +
   ggtitle("1940 Gas") +
   theme(
     plot.title = element_text(size = 20, hjust = 0.5),
-    legend.position = "none"
+    legend.position = "none",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
   )
 
 
@@ -185,11 +189,9 @@ plot.2010.oil <- ggplot() +
   ggtitle("2010 Oil") +
   theme(
     plot.title = element_text(size = 20, hjust = 0.5),
-    legend.position = "bottom",
-    legend.title = element_text(size = 14, hjust = 0),
-    legend.text = element_text(size = 10),
-    legend.title.align = 0,
-    legend.key.width = unit(2, "cm")
+    legend.position = "none",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
   )
 
 plot.2010.gas <- ggplot() +
@@ -207,11 +209,9 @@ plot.2010.gas <- ggplot() +
   ggtitle("2010 Gas") +
   theme(
     plot.title = element_text(size = 20, hjust = 0.5),
-    legend.position = "bottom",
-    legend.title = element_text(size = 14, hjust = 0),
-    legend.text = element_text(size = 10),
-    legend.title.align = 0,
-    legend.key.width = unit(2, "cm")
+    legend.position = "none",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10)
   )
 
 # Combine in a 4‐column layout, collect all legends, then push legend to bottom
