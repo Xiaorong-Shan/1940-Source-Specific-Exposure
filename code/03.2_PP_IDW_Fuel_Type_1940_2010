@@ -1,0 +1,312 @@
+############################################################
+# ---------------- Load Required Libraries ----------------
+############################################################
+
+library(raster)
+library(sf)
+library(magrittr)
+library(USAboundaries)
+library(data.table)
+library(ggplot2)
+library(viridis)
+library(ncdf4)
+library(dplyr)
+library(cowplot)
+library(patchwork)
+library(scales)
+
+############################################################
+# ---------------- Projection Definition ------------------
+############################################################
+
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+############################################################
+# ----------- Read & Transform County Shapefiles ----------
+############################################################
+
+# 1940
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
+
+# 2010
+dir.in.2010 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_2010_county_shapefile_clean"
+roadiness_county.2010 <- st_read(file.path(dir.in.2010, "counties_contiguous_2010.shp"))
+roadiness.trans.county.2010 <- st_transform(roadiness_county.2010, crs = crs(p4s))
+
+############################################################
+# ---------------- Load Exposure Data ----------------------
+############################################################
+
+exposure_county <- read.csv(
+  "/home/xshan2/HAQ_LAB/xshan2/R_Code/Exposure_products/NHGIS_Product/1940_2010_county_exposure_NHGIS_last_update_Jun_30_2025.csv"
+)
+
+############################################################
+# ----------- Filter & Prepare 1940 Power Plant Data ------------
+############################################################
+
+pp_idw.dt.1940 <- exposure_county %>%
+  filter(Data.Type == "PP.IDW", Year == 1940) %>%
+  mutate(
+    State.Code = sprintf("%03d", as.numeric(State.Code)),
+    County.Code = sprintf("%04d", as.numeric(County.Code))
+  )
+
+combined_df.sf.pp_1940 <- merge(
+  pp_idw.dt.1940,
+  roadiness.trans.county.1940,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)
+
+############################################################
+# ----------- Filter & Prepare 2010 Power Plant Data ------------
+############################################################
+
+pp_idw.dt.2010 <- exposure_county %>%
+  filter(Data.Type == "PP.IDW", Year == 2010) %>%
+  mutate(
+    State.Code = sprintf("%02d", as.numeric(State.Code)),
+    County.Code = sprintf("%03d", as.numeric(County.Code))
+  )
+
+combined_df.sf.pp_2010 <- merge(
+  pp_idw.dt.2010,
+  roadiness.trans.county.2010,
+  by.x = c("State.Code", "County.Code"),
+  by.y = c("state", "county")
+)
+
+############################################################
+# ---- Compute year‐specific mean & SD, then normalize ----
+############################################################
+
+# 1) Calculate mean and standard deviation for 1940
+mean_1940 <- mean(combined_df.sf.pp_1940$Exposure.Value, na.rm = TRUE)
+sd_1940   <- sd(  combined_df.sf.pp_1940$Exposure.Value, na.rm = TRUE)
+
+# 2) Calculate mean and standard deviation for 2010
+mean_2010 <- mean(combined_df.sf.pp_2010$Exposure.Value, na.rm = TRUE)
+sd_2010   <- sd(  combined_df.sf.pp_2010$Exposure.Value, na.rm = TRUE)
+
+# 3) Add a normalized column = (value – mean) / sd
+combined_df.sf.pp_1940 <- combined_df.sf.pp_1940 %>%
+  mutate(pp_norm = (Exposure.Value - mean_1940) / sd_1940)
+
+combined_df.sf.pp_2010 <- combined_df.sf.pp_2010 %>%
+  mutate(pp_norm = (Exposure.Value - mean_2010) / sd_2010)
+
+############################################################
+# ------------------------- Plot ---------------------------
+############################################################
+
+# Define separate palettes
+colors_1940 <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
+colors_2010 <- c("#f7fbff", "#deebf7", "#c6dbef", "#9ecae1", "#6baed6", "#3182bd", "#08519c")
+
+############################################################
+# ---------------------- Plot Maps -------------------------
+############################################################
+
+# 1940 Coal
+plot.1940.coal <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_1940 %>% filter(Category=="Coal"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(
+    colours = colors_1940,
+    limits  = c(-1, 1),
+    breaks  = c(-1, 0, 1),
+    labels  = c("<-1", "0", ">1"),
+    oob     = squish,
+    name    = "SD"
+  ) +
+  theme_void() +
+  ggtitle("1940 Coal") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none")
+
+# 1940 Gas
+plot.1940.gas <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_1940 %>% filter(Category=="Gas"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(colours = colors_1940, limits = c(-1,1),
+                       breaks = c(-1,0,1), labels = c("<-1","0",">1"),
+                       oob = squish, name = "SD") +
+  theme_void() +
+  ggtitle("1940 Gas") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none")
+
+# 1940 Petroleum
+plot.1940.petroleum <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_1940 %>% filter(Category=="Petroleum"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(colours = colors_1940, limits = c(-1,1),
+                       breaks = c(-1,0,1), labels = c("<-1","0",">1"),
+                       oob = squish, name = "SD") +
+  theme_void() +
+  ggtitle("1940 Petroleum") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none")
+
+# 1940 Renewable
+plot.1940.renewable <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_1940 %>% filter(Category=="Renewable"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(colours = colors_1940, limits = c(-1,1),
+                       breaks = c(-1,0,1), labels = c("<-1","0",">1"),
+                       oob = squish, name = "SD") +
+  theme_void() +
+  ggtitle("1940 Renewable") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none")
+
+# 2010 Coal
+plot.2010.coal <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_2010 %>% filter(Category=="Coal"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(
+    colours = colors_2010,
+    limits  = c(-1, 1),
+    breaks  = c(-1, 0, 1),
+    labels  = c("<-1", "0", ">1"),
+    oob     = squish,
+    name    = "SD",
+    guide   = guide_colorbar(
+      title.position = "top", title.hjust = 0.5,
+      label.position = "bottom", barwidth = 20, barheight = 0.7
+    )
+  ) +
+  theme_void() +
+  ggtitle("2010 Coal") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none",
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 10))
+
+# 2010 Gas
+plot.2010.gas <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_2010 %>% filter(Category=="Gas"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(
+    colours = colors_2010,
+    limits  = c(-1, 1),
+    breaks  = c(-1, 0, 1),
+    labels  = c("<-1", "0", ">1"),
+    oob     = squish,
+    name    = "SD",
+    guide   = guide_colorbar(
+      title.position = "top", title.hjust = 0.5,
+      label.position = "bottom", barwidth = 20, barheight = 0.7
+    )
+  ) +
+  theme_void() +
+  ggtitle("2010 Gas") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none",
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 10))
+
+# 2010 Petroleum
+plot.2010.petroleum <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_2010 %>% filter(Category=="Petroleum"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(
+    colours = colors_2010,
+    limits  = c(-1, 1),
+    breaks  = c(-1, 0, 1),
+    labels  = c("<-1", "0", ">1"),
+    oob     = squish,
+    name    = "SD",
+    guide   = guide_colorbar(
+      title.position = "top", title.hjust = 0.5,
+      label.position = "bottom", barwidth = 20, barheight = 0.7
+    )
+  ) +
+  theme_void() +
+  ggtitle("2010 Petroleum") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none",
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 10))
+
+# 2010 Renewable
+plot.2010.renewable <- ggplot() +
+  geom_sf(data = combined_df.sf.pp_2010 %>% filter(Category=="Renewable"),
+          aes(fill = exposure_norm), size = 0.1) +
+  coord_sf(xlim = c(-3e6, 2.5e6), ylim = c(-2e6, 1.5e6), expand = FALSE) +
+  scale_fill_gradientn(
+    colours = colors_2010,
+    limits  = c(-1, 1),
+    breaks  = c(-1, 0, 1),
+    labels  = c("<-1", "0", ">1"),
+    oob     = squish,
+    name    = "SD",
+    guide   = guide_colorbar(
+      title.position = "top", title.hjust = 0.5,
+      label.position = "bottom", barwidth = 20, barheight = 0.7
+    )
+  ) +
+  theme_void() +
+  ggtitle("2010 Renewable") +
+  theme(plot.title = element_text(size = 20, hjust = 0.5),
+        legend.position = "none",
+        legend.title = element_text(size = 14),
+        legend.text = element_text(size = 10))
+
+############################################################
+# --------------- Combine & Save Final Plot ----------------
+############################################################
+
+# 1) Row for 1940 with its legend
+row1940 <- (
+  plot.1940.coal  + plot.1940.gas +
+  plot.1940.petroleum + plot.1940.renewable
+) +
+  plot_layout(ncol = 4, guides = "collect") &
+  theme(
+    legend.position   = "bottom",
+    legend.title      = element_text(size = 12),
+    legend.text       = element_text(size = 9),
+    legend.key.width  = unit(1.5, "cm"),
+    legend.key.height = unit(0.5, "cm")
+  )
+
+# 2) Row for 2010 with its legend
+row2010 <- (
+  plot.2010.coal  + plot.2010.gas +
+  plot.2010.petroleum + plot.2010.renewable
+) +
+  plot_layout(ncol = 4, guides = "collect") &
+  theme(
+    legend.position   = "bottom",
+    legend.title      = element_text(size = 12),
+    legend.text       = element_text(size = 9),
+    legend.key.width  = unit(1.5, "cm"),
+    legend.key.height = unit(0.5, "cm")
+  )
+
+# 3) Stack the two rows
+final_plot <- row1940 / row2010 +
+  plot_layout(heights = c(1, 1))  # equal-height rows
+
+# Draw it
+print(final_plot)
+
+ggsave(
+  "/scratch/xshan2/R_Code/PP_IDW_SD_Fuel_Type_1940_2010.pdf",
+  plot     = final_plot,
+  device   = "pdf",
+  width    = 14,
+  height   = 10,
+  units    = "in"
+)
