@@ -4,23 +4,38 @@ Xiaorong Shan (单小容), Joan A. Casey, Jenni A. Shearston, Lucas R.F. Hennema
 
 ## Data used in this work
 
-### 1. Sector-Specific Exposure at County-Level (1940 & 2010)
+## 1. Sector-Specific County-Level Exposure (1940 & 2010)
 
-Estimated air pollution exposure by source sector for each U.S. county in the years 1940 and 2010. Metrics are based on emissions inventories, atmospheric modeling, and historical energy use data.
+Estimated air-pollution exposure by source sector for each U.S. county in 1940 and 2010. Metrics are based on emissions inventories, atmospheric modeling, and historical energy-use data.
 
-**Included Sectors and Pollutants:**
+### Included Sectors & Pollutants
 
-- **CMIP6 Modeled Pollutants:**
-  - PM₂.₅ (Fine Particulate Matter)
-  - O₃ (Ozone)
+#### A. CMIP6-Modeled Pollutants
+- **PM₂.₅ (Fine Particulate Matter)**  
+  11 global climate models  
+- **O₃ (Ozone)**  
+  6 global climate models  
 
-- **Mobile Source Exposure:**
-  - Automobiles: Hydrocarbons (HC), Nitrogen Oxides (NOₓ), Carbon Monoxide (CO)
+#### B. Mobile Source Emissions (Automobiles)
+Population-weighted emissions of:
+- **HC** (Hydrocarbons)  
+- **NOₓ** (Nitrogen Oxides)  
+- **CO** (Carbon Monoxide)  
 
-- **Stationary Source Exposure:**
-  - Power plants
-  - Oil & gas wells
-  - Residential & commercial coal combustion
+#### C. Stationary Source Emissions
+
+1. **Power Plants**  
+   - **Fuel Types:** Coal, Gas, Petroleum, Renewable  
+   - **Spatial Models:** HYADS, Inverse Distance Weighting (IDW)  
+
+2. **Wells**  
+   - **Production Types:** Oil, Gas  
+   - **Spatial Interpolation:** IDW  
+
+3. **Residential & Commercial Combustion**  
+   - **Fuel:** Coal  
+   - **Pollutants:** BC, CO, NH₃, NMVOC, NOₓ, OC, SO₂  
+   - **Exposure Metric:** Heating Degree Days (HDD)  
 
 ---
 
