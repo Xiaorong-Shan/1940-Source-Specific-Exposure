@@ -1,1 +1,98 @@
+############################################################
+# ---------------- Load Required Libraries ----------------
+############################################################
+library( data.table)
+library( raster)
+library( sf)
+library( magrittr)
+library( data.table)
+library( ggplot2)
+library( viridis)
+library( ncdf4)
+library(dplyr)
+library(lubridate)
+
+############################################################
+# ---------------- Projection Definition ------------------
+############################################################
+
+p4s <- "+proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+
+############################################################
+# ----------- Read & Transform County Shapefiles ----------
+############################################################
+
+# 1940
+dir.in.1940 <- "/projects/HAQ_LAB/xshan2/R_Code/Roadiness/FINAL_1940_county_shapefile_clean"
+roadiness_county.1940 <- st_read(file.path(dir.in.1940, "counties_contiguous_1940.shp"))
+roadiness.trans.county.1940 <- st_transform(roadiness_county.1940, crs = crs(p4s))
+
+############################################################
+# ---------------- Load Exposure Data ----------------------
+############################################################
+
+visibility.1940 <- read.csv("/home/xshan2/HAQ_LAB/xshan2/R_Code/visibility_1940/PM2.5_1940_county_NHGIS.csv")
+
+# convert to sf using x_centroid / y_centroid
+yearly_visibility_sf <- st_as_sf(
+  visibility.1940,
+  coords    = c("x_centroid", "y_centroid"),
+  crs       = p4s,
+  remove    = FALSE           # keep the x/y columns around if you like
+)
+
+############################################################
+# ------------------------- Plot ---------------------------
+############################################################
+
+ggplot() +
+  # Base layer: Plot roadiness_county with a neutral outline
+  geom_sf(data = roadiness.trans.county.1940, fill = NA, color = "gray50", size = 0.3) +
+  
+  # Overlay yearly_visibility_sf with PM2.5 color and size mapping
+  geom_sf(data = yearly_visibility_sf, aes(color = PM25, size = PM25)) +
+  
+  # Color scale using 'magma' palette with defined limits and breaks
+  scale_color_viridis_c(option = "magma", 
+                        limits = c(0, 200), 
+                        breaks = c(0, 50, 100, 150, 200), 
+                        labels = c("0", "50", "100", "150", expression("\u2265 200")),
+                        oob = scales::squish) +
+  
+  # Adjust size scale for better visibility
+  scale_size(range = c(1, 6)) +
+
+  # Remove redundant size legend
+  guides(size = "none") +
+  
+  # Clean theme for readability
+  theme_minimal() +
+  
+  # Titles and labels
+  labs( color = "PM2.5 (µg/m³)") +  # Only one label for the legend
+  
+  # Position legend to the right
+  theme(
+    rect = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "none",
+    panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+# Save out to a PDF
+ggsave(
+  filename = "/scratch/xshan2/R_Code/Visiblity_PM25_1940.pdf",
+  plot     = combined_wells_sd,
+  device   = "pdf",
+  width    = 12,   # adjust as needed
+  height   = 6,    # adjust as needed
+  units    = "in"
+)
+
+
+
 
