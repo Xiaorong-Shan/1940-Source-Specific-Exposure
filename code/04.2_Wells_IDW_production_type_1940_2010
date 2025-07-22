@@ -132,7 +132,7 @@ combined_df.sf.wells_2010$exposure_norm <- combined_df.sf.wells_2010$Exposure.Va
 colors <- c("#fff7ec", "#fee8c8", "#fdd49e", "#fdbb84", "#fc8d59", "#e34a33")
 
 plot.1940.oil <- ggplot() +
-  geom_sf(data = combined_df.sf.wells_1940%>% filter(Category == "Oil"),
+  geom_sf(data = combined_df.sf.wells_1940%>% filter(Category == "OIL"),
           aes(fill = exposure_norm, geometry = geometry),
           size = 0.1) +
   coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
@@ -152,7 +152,7 @@ plot.1940.oil <- ggplot() +
   )
 
 plot.1940.gas <- ggplot() +
-  geom_sf(data = combined_df.sf.wells_1940%>% filter(Category == "Gas"),
+  geom_sf(data = combined_df.sf.wells_1940%>% filter(Category == "GAS"),
           aes(fill = exposure_norm, geometry = geometry),
           size = 0.1) +
   coord_sf(xlim = c(-3000000, 2500000), ylim = c(-2000000, 1500000), expand = FALSE) +
