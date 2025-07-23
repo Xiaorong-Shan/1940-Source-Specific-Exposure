@@ -59,14 +59,7 @@ Population and geographic boundary data were obtained from the [National Histori
 
 ## Data Access
 
-Processed data are organized by sector and year, and include metadata files describing variable definitions and data provenance.
-
-> **Note:** If data download links or repository folders are available, include them here, e.g.:
->
-> - [`/data/exposure_1940_2010/`](./data/exposure_1940_2010)
-> - [`/data/epa_2010_monitors/`](./data/epa_2010_monitors)
-> - [`/data/nhgis/`](./data/nhgis)
-
+The data is available here: https://zenodo.org/records/16329316 
 ---
 
 ## Contact
